@@ -1,6 +1,6 @@
 # Sweeps
 Scripts to run several sweep finding pipelines - work in progress
-
+msms_to_fasta.py script originally wrote by Clair Han; count_derived_mutations_ELS_v2.pl by Peter Andolfatto
 
 Follow ms-ASF.log on how to go from msms output to fasta file
 
