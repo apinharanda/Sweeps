@@ -1,0 +1,130 @@
+####20Set-2Oct 2022
+
+#walkthrough log from msms simulations -> fasta file for ASF
+
+##################################################################################################################################################
+##################################################################################################################################################
+#PART 1 msms +format output
+##################################################################################################################################################
+##################################################################################################################################################
+
+#0) msms
+
+#should be submitted to the slurm queue 
+#for lots of simulations these parameters work well
+#!/bin/bash
+#SBATCH --account=palab      # The account name for the job.
+#SBATCH --job-name=msmsRecent   # The job name.
+#SBATCH --time=120:00:00              # The time the job will take to run.
+#SBATCH --mem=128gb        # The memory the job will use per cpu core.
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=8
+
+#actual commands examples
+#eg for neutral
+java -Xmx128G -jar /moto/palab/users/apinharanda/bin/msms/lib/msms.jar 40 10 -t 10000 -r 100000 -I 2 20 20 0 -n 2 0.7 -N 1000000 -ej 0.23 2 1 -threads 8 -oFormat 0.00000000
+
+#eg for ancient
+java -Xmx128G -jar /moto/palab/users/apinharanda/bin/msms/lib/msms.jar 40 100 -t 10000 -r 100000 -I 2 20 20 0 -n 2 0.7 -N 1000000 -Sc 0 1 20000 10000 0 -SI 0.16 2 5e-07 0 -ej 0.23 2 1 -Sp 0.5 -Smark -threads 8 -oFormat 0.00000000 
+
+#eg for recent
+java -Xmx128G -jar /moto/palab/users/apinharanda/bin/msms/lib/msms.jar 40 100 -t 10000 -r 100000 -I 2 20 20 0 -n 2 0.7 -N 1000000 -Sc 0 1 20000 10000 0 -SI 0.006 2 5e-07 0 -ej 0.23 2 1 -Sp 0.5 -Smark -threads 8 -oFormat 0.00000000
+
+##################################################################################################################################################
+##################################################################################################################################################
+
+#1) separate simulations where there was fixation from those where nothing fixed
+#For neutral simulations run as a sanity test
+#For simulations with selection need to pick the ones that have fixed
+#It is most important to run after simulating recent sweeps / not strong selection as most simulations won't fix
+
+#path in AP /moto/palab/users/apinharanda/Dmau12_Dsim11_SDM/msms_simulations/neutral_for_p/check_sweeps_fixed_v2.sh
+#For usage
+bash check_sweeps_fixed.sh --help
+
+#eg
+#can usually be run in the headnode if it is not too many simulations
+#otherwise make a script to submit to the slurm queue with <5h run time
+
+bash check_sweeps_fixed.sh test_dir slurm.out  0.50000000 20
+
+#usage
+[name dir for output]=test_dir
+[out file from msms run]=slurm.out
+[position of selection]=0.50000000 
+[number indv simulated per pop]=20
+ 
+##################################################################################################################################################
+##################################################################################################################################################
+
+#2) After separating simulations that fixed/didnt fix (/do the sanity check that none of the neutral have fixed) change msms output to fasta
+
+#path in AP
+#/moto/palab/users/apinharanda/Dmau12_Dsim11_SDM/msms_simulations/neutral_for_p/msms_to_fasta_v1.sh
+#/moto/palab/users/apinharanda/Dmau12_Dsim11_SDM/msms_simulations/neutral_for_p/msms_to_fasta_v3.py
+
+#need to create a virtual env with py2 and install np
+
+conda activate py2
+
+bash msms_to_fasta_v1.sh --help
+Usage: bash msms_to_fasta_v1.sh [length of simulated sequence] [total nr of haps simulated] [output msms after check_sweeps_fixed.sh, full path to indv file] [speciesID 1] [speciesID 2] [nr haps species 1] [nr haps species 2]
+
+#eg
+bash msms_to_fasta_v1.sh 1000000 40 test_dir_notFixed/test_dir_01 Dsim Dmau outgroup_Dmel 20 20
+
+#usage 
+[length of simulated sequence]=1000000
+[total nr of haps simulated]=40
+[output msms after check_sweeps_fixed.sh, full path to indv file]=test_dir_notFixed/test_dir_01 #this will be each file after check_sweeps_fixed.sh either in the _fixed or _notFixed dir (depending on simulation)
+[speciesID 1]=Dsim #can be whatever sp you are working with 
+[speciesID 2]=Dmau #can be whatever sp you are working with 
+[nr haps species 1]=20
+[nr haps species 2]=20
+
+#the msms output converted to fasta will be in:
+test_dir_notFixed/test_dir_01.fasta
+
+
+##################################################################################################################################################
+##################################################################################################################################################
+
+#3) Make multi fasta in the format of a) ASF and b) ELS
+#It is common to want to join nosweep-sweep-nosweep simulations
+#Or several nosweep so that the total length of the sequence is larger than 1M (it takes a long time to do lots of simulations > 1M)
+#This script joins several converted msms outputs to fasta and formats them to be input by ASF
+#even if not joining several fastas run the script as it formats to ASF input
+#then from the combined fasta counts derived mutations for ELS (in case we are also testing this pipeline)
+
+#cd into directory where the output from the msms_to_fasta_v1.sh that we want to use is
+#so either _fixed or _notFixed dir (depending on simulation)
+#if you are concatenating neutral+selection just move the files to a new directory
+#count_derived_mutations_ELS_v2.pl and multi_fasta_msms_v2.sh have to be in the same dir as input files 
+
+#AP path
+#/moto/palab/users/apinharanda/Dmau12_Dsim11_SDM/msms_simulations/neutral_for_p/test_dir_notFixed/multi_fasta_msms_v2.sh
+#/moto/palab/users/apinharanda/Dmau12_Dsim11_SDM/msms_simulations/neutral_for_p/test_dir_notFixed/count_derived_mutations_ELS_v2.pl
+
+#usage
+bash multi_fasta_msms_v2.sh --help
+Usage: bash multi_fasta_msms_v2.sh [list of all msms.fasta to paste / format for ASF]
+
+#eg
+cd test_dir_notFixed
+
+#IMPORTANT: list the fastas in the order you want them concatenated
+bash multi_fasta_msms_v2.sh test_dir_01.fasta test_dir_02.fasta 
+
+#Output
+#.ELS_results and count.log are for ELS
+#concatenated fasta is for ASF
+
+
+##################################################################################################################################################
+##################################################################################################################################################
+#PART 2 ASF RUN
+##################################################################################################################################################
+##################################################################################################################################################
+
+
+
